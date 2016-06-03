@@ -31,17 +31,17 @@ distance ()
 kill_ai ()
 {	
 	if kill -0 $ai1_pid 2>/dev/null >/dev/null; then
-		kill $ai1_pid
+		kill $ai1_pid 2>/dev/null >/dev/null
 	fi
 	if kill -0 $ai2_pid 2>/dev/null >/dev/null; then
-		kill $ai2_pid
+		kill $ai2_pid 2>/dev/null >/dev/null
 	fi
 }
 
 kill_ai_hum ()
 {	
 	if kill -0 $ai_pid 2>/dev/null >/dev/null; then
-		kill $ai_pid
+		kill $ai_pid 2>/dev/null >/dev/null
 	fi
 }
 
@@ -206,28 +206,35 @@ elif [ "$ai1" != "-human1" ] && [ "$ai2" != "-human2" ]; then
 	curr_pid=$ai1_pid; wait_pid=$ai2_pid;
 	gui_in=3; curr_out=6; curr_in=7; wait_out=8; wait_in=5;
 	(( k *= 2 ))
-	while (( 1 )); do
-		exit_checker=$?
+	while (( 1 )); do	
 		read line <&${curr_out}
 		echo "$line" >&${curr_in}
-		exit_checker2=$?
 		echo "$line" >&${gui_in}
+		
 		if !(kill -0 $curr_pid 2>/dev/null >/dev/null); then
+			wait $curr_pid
+			exit_checker=$?
 			if (( $exit_checker != 0 )) && (( $exit_checker != 1 )) && (( $exit_checker != 2 )); then
 				exit 1
 			fi
 		fi 
-		if !(kill -0 $curr_pid 2>/dev/null >/dev/null); then
+		if ! [[ "$line" =~ MOVE*|END_TURN|PRODUCE* ]]; then
+			echo dupa
+			sleep 0.004
+		fi
+		if !(kill -0 $wait_pid 2>/dev/null >/dev/null); then
+			wait $wait_pid
+			exit_checker=$?
 			if (( $exit_checker != 0 )) && (( $exit_checker != 1 )) && (( $exit_checker != 2 )); then
 				exit 1
 			fi
 		fi 
-
-		exit_checker=$?
 		if (( k == 1 )); then
 			sleep 0.01
 		fi
 		if !(kill -0 $gui_pid 2>/dev/null >/dev/null); then
+			wait $gui_pid
+			exit_checker=$?
 			if (( $exit_checker == 0 )); then
 				kill_ai
 				exit 0
@@ -271,34 +278,36 @@ else
 	fi
 	(( k *= 2 ))
 	while (( 1 )); do
-		exit_checker=$?
 		if (( $k == 1 )); then
 			sleep 0.01
 		fi
 		read line <&${curr_out}
 		echo "$line" >&${curr_in}
-		exit_checker2=$?
-		if !(kill -0 $curr_pid 2>/dev/null >/dev/null); then
-			if (( $exit_checker == 0 )) && (( $curr_pid == $gui_pid )); then
-				kill_ai_hum
-				exit 0
-			elif (( $exit_checker == 0 )) || (( $exit_checker == 1 )) || (( $exit_checker == 2 )); then
-				wait $gui_pid
-				kill_ai_hum
-				exit 0
-			else
+		if !(kill -0 $ai_pid 2>/dev/null >/dev/null); then
+			wait $ai_pid
+			exit_checker=$?
+			if (( $exit_checker != 0 )) && (( $exit_checker != 1 )) && (( $exit_checker != 2 )); then
 				exit 1
 			fi
 		fi
 		if !(kill -0 $gui_pid 2>/dev/null >/dev/null); then
-			if (( $exit_checker2 == 0 )); then
+			sleep 2
+			if !(kill -0 $ai_pid 2>/dev/null >/dev/null); then
+				wait $ai_pid
+				exit_checker=$?
+				if (( $exit_checker != 0 )) && (( $exit_checker != 1 )) && (( $exit_checker != 2 )); then
+					exit 1
+				fi
+			fi
+			wait $gui_pid
+			exit_checker=$?
+			if (( $exit_checker == 0 )); then
 				kill_ai_hum
 				exit 0
 			else
 				exit 1
 			fi
 		fi
-
 		if [ "$line" == "END_TURN" ]; then
 			((k -= 1 ))
 			swap_in_out_pid
